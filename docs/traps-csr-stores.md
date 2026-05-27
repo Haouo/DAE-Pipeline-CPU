@@ -45,8 +45,8 @@ When MEM asserts a trap and is not stalled:
 - CSR trap-entry state is updated,
 - IF redirects to `mtvec_base`,
 - frontend epoch increments,
-- scoreboard rows are flushed,
-- EXE and MEM tokens are cleared.
+- a kill event is generated from the trapping token,
+- younger backend tokens and scoreboard rows are marked killed.
 
 The current implementation reports some events as halt kinds rather than full
 architectural traps.  That keeps the teaching core smaller while still allowing
@@ -64,6 +64,6 @@ structures:
 - stronger token lifetime rules.
 
 The current RTL deliberately stops one step earlier.  It uses token liveness to
-make existing EXE/MEM side effects safer and more explicit, without turning the
+make existing EXE/MEM side effects safer and more explicit.  Sequence IDs now
+define the kill boundary for younger in-flight backend work, without turning the
 core into a ROB-like design.
-

@@ -30,6 +30,8 @@ module dae_backend #(
 
     inst_token_t exe_q, mem_q, wb_q;
     inst_token_t issue_pkt, exe_calc_pkt, mem_calc_pkt;
+    inst_token_t next_exe_pkt, next_mem_pkt, next_wb_pkt;
+    kill_event_t kill_event;
 
     logic [4:0] rf_rs1, rf_rs2, rf_rd;
     logic [31:0] rf_rs1_val, rf_rs2_val, rf_wdata, rf_x10;
@@ -57,7 +59,7 @@ module dae_backend #(
 
     assign trap_flush_o = backend_flush;
     assign backend_flush = mem_take_trap && !mem_stall;
-    assign redirect_valid_o = backend_flush || exe_redirect_valid;
+    assign redirect_valid_o = kill_event.valid;
     assign redirect_pc_o = backend_flush ? csr_mtvec_base : redirect_pc_from_exe;
 
     regfile u_regfile (
@@ -79,7 +81,7 @@ module dae_backend #(
     ) u_scoreboard (
         .clk(clk_i),
         .rst_n(!rst_i),
-        .flush_all(backend_flush),
+        .kill_i(kill_event),
         .stall(mem_stall),
         .candidate(ir_i),
         .candidate_valid(ir_valid_i),
@@ -160,7 +162,7 @@ module dae_backend #(
         .rd_ready_o(exe_rd_ready)
     );
 
-    assign pipeline_advance = !backend_flush && !mem_stall;
+    assign pipeline_advance = !mem_stall;
 
     dae_mem_stage u_mem (
         .clk_i(clk_i),
@@ -183,6 +185,27 @@ module dae_backend #(
         .trap_tval_o(mem_trap_tval),
         .rd_ready_o(mem_rd_ready)
     );
+
+    always_comb begin
+        kill_event = '0;
+        if (backend_flush) begin
+            kill_event.valid = 1'b1;
+            kill_event.epoch = mem_q.epoch;
+            kill_event.seq_id = mem_q.seq_id;
+        end else if (exe_redirect_valid) begin
+            kill_event.valid = 1'b1;
+            kill_event.epoch = exe_q.epoch;
+            kill_event.seq_id = exe_q.seq_id;
+        end
+
+        next_wb_pkt = kill_token_if_younger(mem_calc_pkt, kill_event);
+        next_wb_pkt.valid = mem_q.valid;
+
+        next_mem_pkt = kill_token_if_younger(exe_calc_pkt, kill_event);
+        next_mem_pkt.valid = exe_q.valid;
+
+        next_exe_pkt = kill_token_if_younger(issue_pkt, kill_event);
+    end
 
     dae_wb_stage u_wb (
         .wb_i(wb_q),
@@ -208,19 +231,12 @@ module dae_backend #(
             wb_q <= '0;
             last_step_entered_trap_q <= 1'b0;
         end else begin
-            if (backend_flush) begin
-                wb_q <= mem_calc_pkt;
-                wb_q.valid <= mem_q.valid;
-                exe_q <= '0;
-                mem_q <= '0;
-            end else if (mem_stall) begin
+            if (mem_stall) begin
                 wb_q <= '0;
             end else begin
-                wb_q <= mem_calc_pkt;
-                wb_q.valid <= mem_q.valid;
-                mem_q <= exe_calc_pkt;
-                mem_q.valid <= exe_q.valid;
-                exe_q <= issue_pkt;
+                wb_q <= next_wb_pkt;
+                mem_q <= next_mem_pkt;
+                exe_q <= next_exe_pkt;
             end
 
             if (commit_valid_o) begin

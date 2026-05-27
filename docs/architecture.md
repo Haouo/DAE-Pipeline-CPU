@@ -66,6 +66,10 @@ The backend pipeline payload is `inst_token_t`.  A token carries decoded IR,
 operand values, computed results, memory metadata, CSR metadata, trap state,
 halt state, epoch, and sequence ID.
 
+Backend redirects create a kill boundary from the redirecting token's epoch and
+sequence ID.  Younger in-flight backend tokens are marked killed and then drain
+without side effects.
+
 ## Control Events
 
 There are three main events.
@@ -96,8 +100,8 @@ MEM trap redirect has priority over EXE redirect.  It:
 - updates trap CSRs,
 - redirects IF to `mtvec_base`,
 - increments frontend epoch,
-- flushes backend scoreboard rows,
-- clears EXE and MEM tokens.
+- marks younger backend tokens killed,
+- marks younger scoreboard rows killed so they no longer create hazards.
 
 ## Why This Shape?
 
@@ -109,4 +113,3 @@ classic five-stage teaching CPU:
 - deciding whether a token is still allowed to cause side effects.
 
 That separation is the main teaching value of this core.
-

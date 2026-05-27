@@ -11,8 +11,9 @@ MEM row
 WB row
 ```
 
-Each row records whether the in-flight instruction will write an RD register,
-which RD it targets, and whether the result is ready.
+Each row records the in-flight instruction identity, whether it has been killed,
+whether it will write an RD register, which RD it targets, and whether the result
+is ready.
 
 ## Hazard Check
 
@@ -28,6 +29,10 @@ For the candidate instruction at the IR queue head:
 
 If either source has an unresolved dependency, issue is blocked and the IR queue
 head remains in place.
+
+Killed rows are ignored during hazard checks.  This lets backend logical flush
+mark younger work dead without manufacturing false dependencies while those rows
+drain through the simple stage-row scoreboard.
 
 ## Forwarding Parameters
 
@@ -62,4 +67,3 @@ forces students to think about:
 
 The next architectural step would be replacing stage-row tracking with producer
 tags and completion buses.
-

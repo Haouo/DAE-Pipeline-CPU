@@ -62,12 +62,13 @@ Stale entries are popped and never presented as valid backend issue candidates.
 
 ## What Epoch Does Not Do Yet
 
-Epoch is currently frontend-oriented.  The design does not yet use sequence IDs
-for age-based event arbitration, and it does not use a ROB.
+Epoch is frontend-oriented.  The backend uses sequence IDs as kill boundaries
+for younger in-flight tokens and scoreboard rows, but it does not use a ROB.
 
 Branch redirects still rely on the fact that the backend is in order and the
 branch itself is in EXE.  Trap redirects still come from MEM.  The difference is
-that frontend cleanup is now less tied to the number of frontend stages.
+that frontend cleanup is less tied to the number of frontend stages, and backend
+cleanup is expressed as token kill rather than clearing exact stage registers.
 
 ## Teaching Takeaway
 
@@ -86,4 +87,3 @@ this generation is no longer valid
 That is the conceptual improvement.  The hardware can still clear convenient
 local state, but correctness does not depend on every future frontend buffer
 getting a bespoke flush rule.
-

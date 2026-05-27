@@ -13,6 +13,12 @@ package uarch_pkg;
     typedef logic [EPOCH_W-1:0] epoch_t;
     typedef logic [SEQ_ID_W-1:0] seq_id_t;
 
+    typedef struct packed {
+        logic    valid;
+        epoch_t  epoch;
+        seq_id_t seq_id;
+    } kill_event_t;
+
     typedef enum logic [2:0] {
         FU_INT    = 3'd0,
         FU_BRANCH = 3'd1,
@@ -199,6 +205,9 @@ package uarch_pkg;
 
     typedef struct packed {
         logic        valid;
+        epoch_t      epoch;
+        seq_id_t     seq_id;
+        logic        killed;
         logic        rs1_use;
         logic [4:0]  rs1_idx;
         logic        rs2_use;
@@ -208,6 +217,41 @@ package uarch_pkg;
         logic        rd_ready;
         logic        rd_written_back;
     } scoreboard_row_t;
+
+    function automatic logic seq_after(input seq_id_t lhs, input seq_id_t rhs);
+        seq_id_t diff;
+        diff = lhs - rhs;
+        return diff != '0 && diff[SEQ_ID_W-1] == 1'b0;
+    endfunction
+
+    function automatic logic killed_by_event(
+        input logic        valid,
+        input epoch_t      epoch,
+        input seq_id_t     seq_id,
+        input kill_event_t kill
+    );
+        return kill.valid && valid && epoch == kill.epoch && seq_after(seq_id, kill.seq_id);
+    endfunction
+
+    function automatic inst_token_t kill_token_if_younger(
+        input inst_token_t token,
+        input kill_event_t kill
+    );
+        kill_token_if_younger = token;
+        if (!token.killed && killed_by_event(token.valid, token.epoch, token.seq_id, kill)) begin
+            kill_token_if_younger.killed = 1'b1;
+        end
+    endfunction
+
+    function automatic scoreboard_row_t kill_scoreboard_row_if_younger(
+        input scoreboard_row_t row,
+        input kill_event_t     kill
+    );
+        kill_scoreboard_row_if_younger = row;
+        if (!row.killed && killed_by_event(row.valid, row.epoch, row.seq_id, kill)) begin
+            kill_scoreboard_row_if_younger.killed = 1'b1;
+        end
+    endfunction
 
     function automatic logic is_load(input decoded_ir_t ir);
         return ir.fu_type == FU_LOAD;

@@ -53,9 +53,10 @@ Redirects increment the current epoch.  Old epoch packets may remain in local
 storage, but they must not issue or commit.
 
 `seq_id_t` is allocated by the frontend when an I-cache request is issued.  It
-is carried through fetch/decode/token packets for identity and future control
-extensions.  The current scoreboard is still stage-row based and does not use
-`seq_id_t` for hazard detection.
+is carried through fetch/decode/token packets for identity and backend logical
+kill.  The current scoreboard is still stage-row based for hazard detection, but
+scoreboard rows carry epoch/sequence identity so killed younger rows stop
+participating in hazards.
 
 ### `fetch_pkt_t`
 
@@ -172,8 +173,9 @@ The scoreboard has three stage rows:
 - MEM row
 - WB row
 
-Each row tracks RS debug fields, RD destination, RD readiness, and written-back
-state.  Hazard detection compares candidate RS1/RS2 against in-flight RD fields.
+Each row tracks token identity, killed state, RS debug fields, RD destination,
+RD readiness, and written-back state.  Hazard detection compares candidate
+RS1/RS2 against live in-flight RD fields and ignores killed rows.
 
 Forwarding behavior:
 
@@ -284,9 +286,9 @@ Source: trap detected in MEM, when MEM is not stalled.
 
 Effects:
 
-- `backend_flush` asserts,
-- scoreboard flushes all rows,
-- EXE and MEM tokens are cleared,
+- `backend_flush` asserts as the trap-entry event,
+- a kill event is generated from the trapping MEM token epoch/sequence ID,
+- younger backend tokens and scoreboard rows are marked killed,
 - WB receives the computed MEM token for current-cycle commit reporting,
 - frontend redirect is asserted,
 - frontend epoch increments,
@@ -295,9 +297,14 @@ Effects:
 Trap redirect has priority over EXE redirect:
 
 ```systemverilog
-redirect_valid = backend_flush || exe_redirect_valid;
+redirect_valid = kill_event.valid;
 redirect_pc    = backend_flush ? csr_mtvec_base : exe_redirect_pc;
 ```
+
+The selected redirect event also carries a kill boundary.  Backend tokens and
+scoreboard rows in the same epoch with a younger sequence ID are marked killed
+instead of relying on clearing the exact pipeline registers that happen to hold
+them.
 
 ## Epoch/Token Validity Rules
 
@@ -307,12 +314,13 @@ The implemented epoch/token discipline is intentionally small:
 2. Fetch responses whose request epoch is stale are discarded.
 3. Decoded IR carries epoch and sequence ID.
 4. IR queue entries with stale epoch are silently popped.
-5. Backend tokens carry epoch/sequence ID and a `killed` bit.
-6. Current backend side effects are gated by token liveness, not by ad hoc raw
+5. Backend redirects generate epoch/sequence kill events.
+6. Younger backend tokens and scoreboard rows are marked killed.
+7. Current backend side effects are gated by token liveness, not by ad hoc raw
    `valid` checks alone.
 
-The current design does not yet perform age-based event arbitration with
-`seq_id_t`, and it does not maintain a ROB or committed store buffer.
+The current design uses `seq_id_t` for local younger-token kill, but it does not
+maintain a ROB or committed store buffer.
 
 ## Interfaces
 
@@ -366,12 +374,13 @@ code.
 ## Current Limitations
 
 - No ROB.
-- No age-based event arbitration using `seq_id_t`.
-- Scoreboard is still tied to EXE/MEM/WB rows.
+- No ROB-style multi-event queue; redirect priority is still simple because the
+  backend is in order.
+- Scoreboard is still tied to EXE/MEM/WB rows, though rows are kill-aware.
 - CSR writes still occur from EXE, not from a unified commit stage.
 - Stores still issue from MEM, not from a committed store buffer.
-- Epoch recovery is currently frontend-oriented; backend wrong-path cleanup is
-  still primarily handled by existing trap flush and branch non-flush policy.
+- Epoch recovery is frontend-oriented; backend wrong-path cleanup uses
+  sequence-ID kill events for in-flight younger tokens.
 - Privilege behavior is M-mode oriented and intentionally smaller than a full
   privileged architecture implementation.
 
