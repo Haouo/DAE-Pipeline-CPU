@@ -1,5 +1,9 @@
 # DAE Pipeline CPU
 
+![](assets/arch.png)
+
+---
+
 DAE Pipeline CPU is a readable RV32I + Zicsr educational core.  It is meant to
 show how a simple textbook pipeline can evolve into a more robust design without
 jumping all the way to a production out-of-order processor.
