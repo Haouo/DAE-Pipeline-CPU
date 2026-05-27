@@ -1,9 +1,8 @@
 # DAE Pipeline CPU Implementation Spec
 
-This document describes the current RTL implementation under
-`rtl/dae_pipeline_cpu`.  It is an implementation spec, not a full ISA spec.
-Instruction semantics are defined by the ISS and by the decoder/CSR behavior in
-the RTL.
+This document describes the current RTL implementation in this repository.
+It is an implementation spec, not a full ISA spec.  Instruction semantics are
+defined by the reference ISS and by the decoder/CSR behavior in the RTL.
 
 ## Architecture Summary
 

@@ -1,31 +1,26 @@
-set(DAE_PIPELINE_CPU_SV
-    ${CMAKE_CURRENT_LIST_DIR}/include/riscv.svh
-    ${CMAKE_CURRENT_LIST_DIR}/include/uarch.svh
-    ${CMAKE_CURRENT_LIST_DIR}/src/fifo.sv
-    ${CMAKE_CURRENT_LIST_DIR}/src/regfile.sv
-    ${CMAKE_CURRENT_LIST_DIR}/src/decoder.sv
-    ${CMAKE_CURRENT_LIST_DIR}/src/scoreboard.sv
-    ${CMAKE_CURRENT_LIST_DIR}/src/alu.sv
-    ${CMAKE_CURRENT_LIST_DIR}/src/branch_unit.sv
-    ${CMAKE_CURRENT_LIST_DIR}/src/CSRFile.sv
-    ${CMAKE_CURRENT_LIST_DIR}/src/lsu.sv
-    ${CMAKE_CURRENT_LIST_DIR}/src/load_data_filter.sv
-    ${CMAKE_CURRENT_LIST_DIR}/src/if_stage.sv
-    ${CMAKE_CURRENT_LIST_DIR}/src/id_stage.sv
-    ${CMAKE_CURRENT_LIST_DIR}/src/frontend.sv
-    ${CMAKE_CURRENT_LIST_DIR}/src/exe_stage.sv
-    ${CMAKE_CURRENT_LIST_DIR}/src/mem_stage.sv
-    ${CMAKE_CURRENT_LIST_DIR}/src/wb_stage.sv
-    ${CMAKE_CURRENT_LIST_DIR}/src/backend.sv
-    ${CMAKE_CURRENT_LIST_DIR}/src/Top.sv
+cmake_minimum_required(VERSION 3.21...3.28)
+project(dae_pipeline_cpu
+    VERSION     0.1.0
+    DESCRIPTION "DAE Pipeline CPU — RV32I+Zicsr educational core with Snake SoC DPI testbench"
+    LANGUAGES   C
 )
 
-set(DAE_PIPELINE_CPU_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/include)
+# Top-level build for the standalone DAE Pipeline CPU repository.
+#
+# Builds:
+#   - libsnake_soc.a and its device dependencies (C-side backend for the
+#     Verilator DPI testbench), via snake_soc/.
+#   - Optionally cross-compiles the upstream riscv-tests submodule against
+#     riscv-env-custom/snake/ into ${CMAKE_BINARY_DIR}/riscv-tests/, via
+#     tests/riscv-tests/. Self-skips if the cross compiler or submodule is
+#     missing.
+#
+# The RTL itself is driven by Verilator from scripts/run-riscv-tests.sh, not
+# from CMake. CMake only produces the artefacts that script links against.
 
-set(DAE_PIPELINE_CPU_TB
-    ${CMAKE_CURRENT_LIST_DIR}/tb/tb_top.sv
-)
+add_subdirectory(snake_soc)
 
-set(DAE_PIPELINE_CPU_DPI
-    ${CMAKE_CURRENT_LIST_DIR}/dpi/snake_soc_dpi.c
-)
+option(BUILD_RISCV_TESTS "Cross-compile riscv-tests for the DPI testbench" ON)
+if(BUILD_RISCV_TESTS)
+    add_subdirectory(tests/riscv-tests)
+endif()

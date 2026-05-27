@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 VERILATOR_BIN="${VERILATOR_BIN:-/opt/verilator/bin/verilator}"
 if [[ ! -x "$VERILATOR_BIN" ]]; then
@@ -9,7 +9,7 @@ if [[ ! -x "$VERILATOR_BIN" ]]; then
 fi
 
 BUILD_DIR="${BUILD_DIR:-$ROOT/obj_dir_dae}"
-SOC_BUILD="${SOC_BUILD:-$ROOT/build/snake_soc}"
+SOC_BUILD="${SOC_BUILD:-$ROOT/build}"
 TEST_DIR="${TEST_DIR:-$SOC_BUILD/riscv-tests}"
 MAX_CYCLES="${MAX_CYCLES:-200000}"
 SKIP_BUILD="${SKIP_BUILD:-0}"
@@ -17,7 +17,7 @@ VERILATOR_PARAMS="${VERILATOR_PARAMS:-}"
 
 if [[ ! -d "$SOC_BUILD" ]]; then
   echo "Missing Snake SoC build directory: $SOC_BUILD" >&2
-  echo "Build the workspace first so libsnake_soc.a and riscv-tests exist." >&2
+  echo "Build snake_soc first so libsnake_soc.a and riscv-tests exist." >&2
   exit 1
 fi
 
@@ -27,28 +27,28 @@ if [[ ! -d "$TEST_DIR" ]]; then
 fi
 
 SV_FILES=(
-  "$ROOT/rtl/dae_pipeline_cpu/src/fifo.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/src/regfile.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/src/decoder.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/src/scoreboard.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/src/alu.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/src/branch_unit.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/src/CSRFile.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/src/lsu.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/src/load_data_filter.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/src/if_stage.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/src/id_stage.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/src/frontend.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/src/exe_stage.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/src/mem_stage.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/src/wb_stage.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/src/backend.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/src/Top.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/tb/tb_top.sv"
-  "$ROOT/rtl/dae_pipeline_cpu/dpi/snake_soc_dpi.c"
+  "$ROOT/src/fifo.sv"
+  "$ROOT/src/regfile.sv"
+  "$ROOT/src/decoder.sv"
+  "$ROOT/src/scoreboard.sv"
+  "$ROOT/src/alu.sv"
+  "$ROOT/src/branch_unit.sv"
+  "$ROOT/src/CSRFile.sv"
+  "$ROOT/src/lsu.sv"
+  "$ROOT/src/load_data_filter.sv"
+  "$ROOT/src/if_stage.sv"
+  "$ROOT/src/id_stage.sv"
+  "$ROOT/src/frontend.sv"
+  "$ROOT/src/exe_stage.sv"
+  "$ROOT/src/mem_stage.sv"
+  "$ROOT/src/wb_stage.sv"
+  "$ROOT/src/backend.sv"
+  "$ROOT/src/Top.sv"
+  "$ROOT/tb/tb_top.sv"
+  "$ROOT/dpi/snake_soc_dpi.c"
 )
 
-CFLAGS="-I$ROOT/rtl/dae_pipeline_cpu/dpi"
+CFLAGS="-I$ROOT/dpi"
 CFLAGS+=" -I$ROOT/snake_soc/include"
 CFLAGS+=" -I$ROOT/devices/common/include"
 CFLAGS+=" -I$ROOT/devices/boot_rom/include"
@@ -57,23 +57,21 @@ CFLAGS+=" -I$ROOT/devices/dram/include"
 CFLAGS+=" -I$ROOT/devices/clint/include"
 CFLAGS+=" -I$ROOT/devices/irq_agg/include"
 CFLAGS+=" -I$ROOT/elf_loader/include"
-CFLAGS+=" -I$ROOT/iss/include"
 
-LDFLAGS="$SOC_BUILD/libsnake_soc.a"
+LDFLAGS="$SOC_BUILD/snake_soc/libsnake_soc.a"
 LDFLAGS+=" $SOC_BUILD/_devices/boot_rom/libdevices_boot_rom.a"
 LDFLAGS+=" $SOC_BUILD/_devices/clint/libdevices_clint.a"
 LDFLAGS+=" $SOC_BUILD/_devices/uart/libdevices_uart.a"
 LDFLAGS+=" $SOC_BUILD/_devices/dram/libdevices_dram.a"
 LDFLAGS+=" $SOC_BUILD/_devices/irq_agg/libdevices_irq_agg.a"
 LDFLAGS+=" $SOC_BUILD/_elf_loader/libelf_loader.a"
-LDFLAGS+=" $SOC_BUILD/_iss/libiss.a"
 LDFLAGS+=" $SOC_BUILD/_devices/common/libdevices_common.a"
 
 if [[ "$SKIP_BUILD" != "1" ]]; then
   # shellcheck disable=SC2086
   "$VERILATOR_BIN" --binary -sv \
     --Mdir "$BUILD_DIR" \
-    -I"$ROOT/rtl/dae_pipeline_cpu/include" \
+    -I"$ROOT/include" \
     ${VERILATOR_PARAMS} \
     "${SV_FILES[@]}" \
     --top-module tb_top \
