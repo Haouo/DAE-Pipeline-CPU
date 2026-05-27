@@ -78,7 +78,7 @@ module scoreboard #(
             else rs2_hazard = 1'b1;
         end
 
-        issue_valid = candidate_valid && !kill_i.valid && !stall && !rs1_hazard && !rs2_hazard;
+        issue_valid = candidate_valid && !stall && !rs1_hazard && !rs2_hazard;
         issue_rs1_val = rs1_fwd_mem ? mem_result_bus :
                         rs1_fwd_wb  ? wb_result_bus  : gpr_rs1_val;
         issue_rs2_val = rs2_fwd_mem ? mem_result_bus :
